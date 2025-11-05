@@ -1,0 +1,40 @@
+/* style.css - small custom tweaks */
+body.dark {
+  background-color: #0f172a;
+  color: #e6eef8;
+}
+.table-action-btn { cursor: pointer; }
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  #userBar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  #addPanel {
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 1rem 1rem 0 0;
+  }
+
+  table {
+    font-size: 0.85rem;
+  }
+
+  #dashboard .grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+#addPanel {
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+#addPanel:not(.hidden) {
+  transform: translateY(0);
+  opacity: 1;
+}
+

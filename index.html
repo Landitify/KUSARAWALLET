@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finance Tracker - Simple</title>
+
+  <!-- Tailwind CDN -->
+  <script>
+  tailwind.config = {
+    darkMode: 'class',
+  }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Firebase (compat libs) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="bg-gray-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+
+  <!-- NAVBAR -->
+  <header class="bg-white dark:bg-slate-800 shadow-sm fixed w-full top-0 z-20 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold">KW</div>
+        <div>
+          <h1 class="text-base md:text-lg font-semibold leading-tight">Kusara Wallet</h1>
+          <p class="hidden sm:block text-xs text-slate-500">Track Your Financial</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="themeToggle" class="px-2 py-1 rounded-md border text-sm">Dark</button>
+        <button id="signinBtn" class="text-sm px-3 py-1 rounded-md bg-indigo-600 text-white">Sign In</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="max-w-6xl mx-auto px-4 pt-24 pb-20">
+
+    <!-- USER BAR -->
+    <div id="userBar" class="hidden mb-5 flex flex-col md:flex-row justify-between md:items-center gap-3">
+      <div>
+        <h2 class="text-xl md:text-2xl font-semibold">Welcome, <span id="userEmail">User</span></h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Track income & expenses reports.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button id="addBtnDesktop" class="hidden md:inline-flex items-center gap-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+          <span class="text-lg leading-none">＋</span>
+          <span>Add Transaction</span>
+        </button>
+        <button id="exportCsv" class="px-3 py-2 border rounded-md text-sm">Export CSV</button>
+        <button id="signOutBtn" class="px-3 py-2 border rounded-md text-sm">Sign Out</button>
+      </div>
+    </div>
+
+    <!-- AUTH FORM -->
+    <div id="authForm" class="max-w-md mx-auto bg-white dark:bg-slate-800 dark:text-slate-100 shadow-md rounded-lg p-5 mb-6 transition-colors">
+      <h3 class="text-lg font-semibold mb-3 text-center">Sign in / Register</h3>
+      <input id="emailInput" type="email" placeholder="Email"
+        class="w-full mb-3 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
+      <input id="passwordInput" type="password" placeholder="Password"
+        class="w-full mb-4 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
+      <div class="flex gap-3">
+        <button id="btnLogin" class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Sign In</button>
+        <button id="btnRegister" class="flex-1 px-3 py-2 border rounded hover:bg-gray-100 dark:hover:bg-slate-700 dark:border-slate-600">Register</button>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="hidden">
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm text-center sm:text-left">
+          <p class="text-xs text-slate-500 dark:text-slate-400">Total Income</p>
+          <p id="totalIncome" class="text-xl md:text-2xl font-semibold mt-1 text-slate-800 dark:text-white">Rp0</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm text-center sm:text-left">
+          <p class="text-xs text-slate-500 dark:text-slate-400">Total Expense</p>
+          <p id="totalExpense" class="text-xl md:text-2xl font-semibold mt-1 text-rose-800 dark:text-rose-400">Rp0</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm text-center sm:text-left">
+          <p class="text-xs text-slate-500 dark:text-slate-400">Balance</p>
+          <p id="balance" class="text-xl md:text-2xl font-semibold mt-1 text-slate-800 dark:text-white">Rp0</p>
+        </div>
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm text-center sm:text-left">
+          <p class="text-xs text-slate-500 dark:text-slate-400">Total Saving</p>
+          <p id="totalSaving" class="text-xl md:text-2xl font-semibold mt-1 text-emerald-700 dark:text-emerald-400">Rp0</p>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm transition-colors">
+        <h4 class="font-semibold mb-3 text-center md:text-left text-slate-800 dark:text-white">Expense Breakdown</h4>
+        <canvas id="pieChart" height="220"></canvas>
+        <hr class="my-4 border-slate-200 dark:border-slate-700" />
+        <h4 class="font-semibold mb-3 text-center md:text-left text-slate-800 dark:text-white">Monthly Trend</h4>
+        <canvas id="lineChart" height="140"></canvas>
+      </div>
+
+      <!-- Transaction Table -->
+      <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm mt-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-3">
+          <h4 class="font-semibold text-center sm:text-left dark:text-white">Transaction History</h4>
+          <div class="flex gap-2 justify-center sm:justify-end">
+            <select id="filterType" class="border px-2 py-1 rounded text-sm bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">
+              <option value="all">All</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="saving">Saving</option>
+            </select>
+            <input id="filterMonth" type="month" class="border px-2 py-1 rounded text-sm bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" />
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-lg">
+            <thead class="text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700">
+              <tr>
+                <th class="text-left py-2 px-2">Date</th>
+                <th class="text-left py-2 px-2">Desc</th>
+                <th class="text-left py-2 px-2">Category</th>
+                <th class="text-left py-2 px-2">Amount</th>
+                <th class="text-left py-2 px-2">Type</th>
+                <th class="py-2 text-center px-2">Action</th>
+              </tr>
+            </thead>
+            <tbody id="txBody" class="divide-y divide-slate-200 dark:divide-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Floating Add Button -->
+  <button id="addBtn"
+    class="fixed bottom-6 right-6 flex items-center justify-center w-14 h-14 rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700 transition md:hidden z-50">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+      stroke-width="2.2" stroke="currentColor" class="w-8 h-8">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  </button>
+
+  <!-- Add Transaction Panel -->
+  <div id="addPanel"
+    class="fixed right-0 bottom-0 w-full sm:w-96 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 p-5 rounded-t-2xl shadow-2xl hidden z-40 max-h-[90vh] overflow-y-auto transition-colors">
+    <h4 class="font-semibold mb-3 text-center sm:text-left">Add Transaction</h4>
+    <label class="text-xs text-slate-500 dark:text-slate-400">Type</label>
+    <select id="txType"
+      class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">
+      <option value="expense">Expense</option>
+      <option value="income">Income</option>
+      <option value="saving">Saving</option>
+    </select>
+    <input id="txAmount" type="number" placeholder="Amount"
+      class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
+    <input id="txDate" type="date"
+      class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" />
+    <input id="txCategory" type="text" placeholder="Category"
+      class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
+    <input id="txDesc" type="text" placeholder="Description (optional)"
+      class="w-full mb-3 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
+    <div class="flex flex-col sm:flex-row gap-2">
+      <button id="saveTx" class="flex-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700">Save</button>
+      <button id="cancelTx" class="flex-1 px-3 py-2 border rounded hover:bg-gray-100 dark:hover:bg-slate-700 dark:border-slate-600">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Firebase config -->
+  <script src="firebase-config.js"></script>
+
+  <!-- App script -->
+  <script src="script.js"></script>
+</body>
+</html>
