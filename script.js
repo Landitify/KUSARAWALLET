@@ -86,6 +86,29 @@ if (typeof firebase === 'undefined') {
 
   signinBtn.onclick = () => authForm.scrollIntoView({ behavior: 'smooth' });
   signOutBtn.onclick = () => auth.signOut();
+  // ===== CATEGORY HANDLING =====
+const defaultCategories = {
+  income: ['Gaji', 'Bonus', 'Penjualan', 'Lainnya'],
+  expense: ['Makan & Minum', 'Transportasi', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya'],
+  saving: ['Tabungan Darurat', 'Investasi', 'Liburan', 'Lainnya']
+};
+
+// Fungsi isi kategori sesuai tipe
+function updateCategoryOptions() {
+  const type = txType.value;
+  const categories = defaultCategories[type] || [];
+  txCategory.innerHTML = '';
+  categories.forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    txCategory.appendChild(opt);
+  });
+}
+
+// Jalankan pertama kali & saat tipe berubah
+updateCategoryOptions();
+txType.addEventListener('change', updateCategoryOptions);
 
   // ===== Auth State =====
   auth.onAuthStateChanged(user => {
@@ -164,38 +187,75 @@ if (typeof firebase === 'undefined') {
 
   // ===== Render Transactions =====
   function renderTransactions(list) {
-    const typeFilter = filterType.value;
-    const monthFilter = filterMonth.value;
-    let filtered = list.filter(tx => {
-      if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-      if (monthFilter && tx.date.slice(0, 7) !== monthFilter) return false;
-      return true;
-    });
+  const typeFilter = filterType.value;
+  const monthFilter = filterMonth.value;
+  let filtered = list.filter(tx => {
+    if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
+    if (monthFilter && tx.date.slice(0, 7) !== monthFilter) return false;
+    return true;
+  });
 
-    txBody.innerHTML = '';
-    filtered.forEach(tx => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="py-2">${tx.date}</td>
-        <td class="py-2">${escapeHtml(tx.desc || '-')}</td>
-        <td class="py-2">${escapeHtml(tx.category)}</td>
-        <td class="py-2">${formatCurrency(tx.amount)}</td>
-        <td class="py-2">${tx.type}</td>
-        <td class="py-2 text-center">
-          <button class="delete-btn text-sm px-2 py-1 border rounded" data-id="${tx.id}">Delete</button>
-        </td>`;
-      txBody.appendChild(tr);
-    });
+  const txListEl = document.getElementById('txList'); // container baru
+  txListEl.innerHTML = '';
 
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-      btn.onclick = () => {
-        const id = btn.dataset.id;
-        if (!confirm('Delete this transaction?')) return;
-        const user = firebase.auth().currentUser;
-        db.ref(`users/${user.uid}/transactions/${id}`).remove();
-      };
-    });
+  if (filtered.length === 0) {
+    txListEl.innerHTML = `
+      <div class="text-center text-slate-500 dark:text-slate-400 py-6">
+        No transactions found for this period.
+      </div>`;
+    return;
   }
+
+  filtered.forEach(tx => {
+    const icon =
+      tx.type === 'income'
+        ? '💰'
+        : tx.type === 'expense'
+        ? '💸'
+        : '🏦';
+
+    const colorClass =
+      tx.type === 'income'
+        ? 'text-green-600 dark:text-green-400'
+        : tx.type === 'expense'
+        ? 'text-rose-600 dark:text-rose-400'
+        : 'text-emerald-600 dark:text-emerald-400';
+
+    const card = document.createElement('div');
+    card.className =
+      'flex items-center justify-between bg-white dark:bg-slate-800 shadow-sm rounded-lg px-4 py-3 border border-slate-100 dark:border-slate-700 transition-colors';
+
+    card.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-lg ${colorClass}">
+          ${icon}
+        </div>
+        <div>
+          <p class="font-medium text-slate-800 dark:text-slate-100">${escapeHtml(tx.category)}</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">${tx.date} • ${escapeHtml(tx.desc || '-') }</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="font-semibold ${colorClass}">${formatCurrency(tx.amount)}</p>
+        <button class="delete-btn text-xs text-slate-400 hover:text-rose-500" data-id="${tx.id}">
+          Delete
+        </button>
+      </div>
+    `;
+    txListEl.appendChild(card);
+  });
+
+  // delete logic
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.id;
+      if (!confirm('Delete this transaction?')) return;
+      const user = firebase.auth().currentUser;
+      db.ref(`users/${user.uid}/transactions/${id}`).remove();
+    };
+  });
+}
+
 
   // ===== Summary & Charts =====
   function updateSummaryAndCharts(list) {
