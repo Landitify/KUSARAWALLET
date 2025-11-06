@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kusara Wallet - Simple Track Your Money</title>
+  <title>Finance Tracker - Simple</title>
 
   <!-- Tailwind CDN -->
   <script>
@@ -109,7 +109,8 @@
       </div>
 
       <!-- Transaction Table -->
-      <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm mt-6">
+      <!-- Transaction History -->
+      <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm mt-6 transition-colors">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-3">
           <h4 class="font-semibold text-center sm:text-left dark:text-white">Transaction History</h4>
           <div class="flex gap-2 justify-center sm:justify-end">
@@ -123,21 +124,8 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-lg">
-            <thead class="text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700">
-              <tr>
-                <th class="text-left py-2 px-2">Date</th>
-                <th class="text-left py-2 px-2">Desc</th>
-                <th class="text-left py-2 px-2">Category</th>
-                <th class="text-left py-2 px-2">Amount</th>
-                <th class="text-left py-2 px-2">Type</th>
-                <th class="py-2 text-center px-2">Action</th>
-              </tr>
-            </thead>
-            <tbody id="txBody" class="divide-y divide-slate-200 dark:divide-slate-700 dark:text-slate-100 bg-white dark:bg-slate-800"></tbody>
-          </table>
-        </div>
+        <!-- Card List -->
+        <div id="txList" class="space-y-3"></div>
       </div>
     </section>
   </main>
@@ -166,8 +154,18 @@
       class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
     <input id="txDate" type="date"
       class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" />
-    <input id="txCategory" type="text" placeholder="Category"
-      class="w-full mb-2 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
+    <div class="mb-2">
+      <label class="text-xs text-slate-500 dark:text-slate-400">Category</label>
+      <div class="flex gap-2">
+        <select id="txCategory"
+          class="flex-1 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">
+        </select>
+        <button id="addCategoryBtn"
+          class="px-3 py-2 border rounded bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600">＋</button>
+        <button id="deleteCategoryBtn"
+          class="px-3 py-2 border rounded bg-slate-100 dark:bg-slate-700 hover:bg-rose-100 dark:hover:bg-rose-800">🗑️</button>
+      </div>
+    </div>
     <input id="txDesc" type="text" placeholder="Description (optional)"
       class="w-full mb-3 px-3 py-2 border rounded bg-white dark:bg-slate-700 dark:border-slate-600 dark:placeholder-slate-400" />
     <div class="flex flex-col sm:flex-row gap-2">
@@ -183,4 +181,3 @@
   <script src="script.js"></script>
 </body>
 </html>
-
