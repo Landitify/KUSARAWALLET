@@ -38,8 +38,9 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <button id="themeToggle" class="px-2 py-1 rounded-md border text-sm">Dark</button>
-        <button id="signinBtn" class="text-sm px-3 py-1 rounded-md bg-indigo-600 text-white">Sign In</button>
+        <button id="themeToggle" class="px-2 py-1 rounded-md border text-sm" hidden>Dark</button>
+        <button id="signinBtn" class="text-sm px-3 py-1 rounded-md bg-indigo-600 text-white" hidden>Sign In</button>
+        <button id="signOutBtn" class="text-sm px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-green-700">Sign Out</button>
       </div>
     </div>
   </header>
@@ -58,8 +59,8 @@
           <span class="text-lg leading-none">＋</span>
           <span>Add Transaction</span>
         </button>
-        <button id="exportCsv" class="px-3 py-2 border rounded-md text-sm">Export CSV</button>
-        <button id="signOutBtn" class="px-3 py-2 border rounded-md text-sm">Sign Out</button>
+        <button id="exportCsv" class="px-3 py-2 border rounded-md text-sm hover:bg-indigo-600">Export CSV</button>
+        <button id="menuyearly" class="px-3 py-2 border rounded-md text-sm hover:bg-indigo-600">Yearly Report</button>
       </div>
     </div>
 
@@ -78,6 +79,13 @@
 
     <!-- DASHBOARD -->
     <section id="dashboard" class="hidden">
+
+      <!-- PERIOD SELECTOR FOR SUMMARY -->
+  <div class="mb-4 flex items-center gap-3">
+    <label class="text-sm text-slate-600 dark:text-slate-300">Periode:</label>
+    <input id="summaryMonth" type="month"
+      class="border px-2 py-1 rounded text-sm bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" />
+  </div>
 
       <!-- Summary Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -128,6 +136,45 @@
         <div id="txList" class="space-y-3"></div>
       </div>
     </section>
+    <section id="yearlySummary" class="hidden mt-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold">Yearly Summary</h2>
+    <select id="yearSelector" class="px-3 py-1 border rounded bg-white dark:bg-slate-700 dark:border-slate-600">
+    </select>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Income (Year)</p>
+      <p id="yIncome" class="text-xl font-semibold">Rp0</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Expense (Year)</p>
+      <p id="yExpense" class="text-xl font-semibold text-rose-500">Rp0</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Saving (Year)</p>
+      <p id="ySaving" class="text-xl font-semibold text-emerald-500">Rp0</p>
+    </div>
+    <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+      <p class="text-xs text-slate-500 dark:text-slate-400">Balance</p>
+      <p id="yBalance" class="text-xl font-semibold">Rp0</p>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm mb-6">
+    <h3 class="font-semibold mb-3">Category Breakdown (Year)</h3>
+    <canvas id="yCategoryChart" height="200"></canvas>
+  </div>
+
+  <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm">
+    <h3 class="font-semibold mb-3">Income vs Expense Trend</h3>
+    <canvas id="yTrendChart" height="200"></canvas>
+  </div>
+</section>
+
   </main>
 
   <!-- Floating Add Button -->
