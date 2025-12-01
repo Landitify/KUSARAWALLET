@@ -33,31 +33,37 @@ const balanceEl = document.getElementById('balance');
 const exportCsvBtn = document.getElementById('exportCsv');
 const filterType = document.getElementById('filterType');
 const filterMonth = document.getElementById('filterMonth');
+const summaryMonth = document.getElementById('summaryMonth');
 const themeToggle = document.getElementById('themeToggle');
 
-// === THEME TOGGLE ===
+const yearlySection = document.getElementById('yearlySummary');
+const menuYearlyBtn = document.getElementById('menuyearly'); // id from your button
 
+// === THEME TOGGLE ===
 // apply saved theme at startup
 const savedTheme = localStorage.getItem('ft_theme');
 if (savedTheme === 'dark') {
   document.documentElement.classList.add('dark');
-  themeToggle.textContent = 'Light';
+  if (themeToggle) themeToggle.textContent = 'Light';
 } else {
   document.documentElement.classList.remove('dark');
-  themeToggle.textContent = 'Dark';
+  if (themeToggle) themeToggle.textContent = 'Dark';
 }
 
-themeToggle.addEventListener('click', () => {
-  document.documentElement.classList.toggle('dark');
-  const isDark = document.documentElement.classList.contains('dark');
-  themeToggle.textContent = isDark ? 'Light' : 'Dark';
-  localStorage.setItem('ft_theme', isDark ? 'dark' : 'light');
-});
-
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    themeToggle.textContent = isDark ? 'Light' : 'Dark';
+    localStorage.setItem('ft_theme', isDark ? 'dark' : 'light');
+  });
+}
 
 // ====== Charts ======
 let pieChart = null;
 let lineChart = null;
+let yCategoryChart = null;
+let yTrendChart = null;
 
 // ====== Firebase Init ======
 if (typeof firebase === 'undefined') {
@@ -68,63 +74,68 @@ if (typeof firebase === 'undefined') {
   const db = firebase.database();
 
   // ===== Auth events =====
-  btnRegister.onclick = () => {
+  btnRegister && (btnRegister.onclick = () => {
     const email = emailInput.value.trim();
     const pass = passwordInput.value.trim();
     if (!email || !pass) return alert('Fill email & password');
     auth.createUserWithEmailAndPassword(email, pass)
       .then(() => alert('Register successful!'))
       .catch(err => alert(err.message));
-  };
+  });
 
-  btnLogin.onclick = () => {
+  btnLogin && (btnLogin.onclick = () => {
     const email = emailInput.value.trim();
     const pass = passwordInput.value.trim();
     if (!email || !pass) return alert('Fill email & password');
     auth.signInWithEmailAndPassword(email, pass).catch(err => alert(err.message));
+  });
+
+  signinBtn && (signinBtn.onclick = () => authForm.scrollIntoView({ behavior: 'smooth' }));
+  signOutBtn && (signOutBtn.onclick = () => auth.signOut());
+
+  // ===== CATEGORY HANDLING =====
+  const defaultCategories = {
+    income: ['Gaji', 'Bonus', 'Penjualan', 'Lainnya'],
+    expense: ['Makan & Minum', 'Transportasi', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya'],
+    saving: ['Tabungan Darurat', 'Investasi', 'Liburan', 'Lainnya']
   };
 
-  signinBtn.onclick = () => authForm.scrollIntoView({ behavior: 'smooth' });
-  signOutBtn.onclick = () => auth.signOut();
-  // ===== CATEGORY HANDLING =====
-const defaultCategories = {
-  income: ['Gaji', 'Bonus', 'Penjualan', 'Lainnya'],
-  expense: ['Makan & Minum', 'Transportasi', 'Tagihan', 'Belanja', 'Hiburan', 'Kesehatan', 'Lainnya'],
-  saving: ['Tabungan Darurat', 'Investasi', 'Liburan', 'Lainnya']
-};
+  function updateCategoryOptions() {
+    if (!txType || !txCategory) return;
+    const type = txType.value;
+    const categories = defaultCategories[type] || [];
+    txCategory.innerHTML = '';
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      txCategory.appendChild(opt);
+    });
+  }
 
-// Fungsi isi kategori sesuai tipe
-function updateCategoryOptions() {
-  const type = txType.value;
-  const categories = defaultCategories[type] || [];
-  txCategory.innerHTML = '';
-  categories.forEach(cat => {
-    const opt = document.createElement('option');
-    opt.value = cat;
-    opt.textContent = cat;
-    txCategory.appendChild(opt);
-  });
-}
-
-// Jalankan pertama kali & saat tipe berubah
-updateCategoryOptions();
-txType.addEventListener('change', updateCategoryOptions);
+  updateCategoryOptions();
+  txType && txType.addEventListener('change', updateCategoryOptions);
 
   // ===== Auth State =====
   auth.onAuthStateChanged(user => {
     if (user) {
-      authForm.style.display = 'none';
-      userBar.classList.remove('hidden');
-      dashboard.classList.remove('hidden');
-      userEmail.textContent = user.email;
-      document.getElementById('addBtn').classList.remove('hidden');
+      authForm && (authForm.style.display = 'none');
+      userBar && userBar.classList.remove('hidden');
+      dashboard && dashboard.classList.remove('hidden');
+      userEmail && (userEmail.textContent = user.email);
+      document.getElementById('addBtn') && document.getElementById('addBtn').classList.remove('hidden');
       setupUserListener(user.uid);
+
+      // Load yearly UI + data after login
+      loadYearOptions();
+      updateYearlySummary();
     } else {
-      authForm.style.display = 'block';
-      userBar.classList.add('hidden');
-      dashboard.classList.add('hidden');
-      document.getElementById('addBtn').classList.add('hidden');
+      authForm && (authForm.style.display = 'block');
+      userBar && userBar.classList.add('hidden');
+      dashboard && dashboard.classList.add('hidden');
+      document.getElementById('addBtn') && document.getElementById('addBtn').classList.add('hidden');
       detachUserListener();
+      // keep yearly hidden by default (will be shown when menuyearly clicked)
     }
   });
 
@@ -138,6 +149,7 @@ txType.addEventListener('change', updateCategoryOptions);
       const data = snapshot.val() || {};
       const txList = Object.keys(data).map(k => ({ id: k, ...data[k] }))
         .sort((a, b) => b.timestamp - a.timestamp);
+      // render history and summary (summary will filter by summaryMonth)
       renderTransactions(txList);
       updateSummaryAndCharts(txList);
     });
@@ -149,20 +161,21 @@ txType.addEventListener('change', updateCategoryOptions);
     }
     transactionsRef = null;
     listenerCallback = null;
-    txBody.innerHTML = '';
-    totalIncomeEl.textContent = 'Rp0';
-    totalExpenseEl.textContent = 'Rp0';
-    balanceEl.textContent = 'Rp0';
+    const txListEl = document.getElementById('txList');
+    if (txListEl) txListEl.innerHTML = '';
+    totalIncomeEl && (totalIncomeEl.textContent = 'Rp0');
+    totalExpenseEl && (totalExpenseEl.textContent = 'Rp0');
+    balanceEl && (balanceEl.textContent = 'Rp0');
     destroyCharts();
   }
 
   // ===== Add Transaction =====
   const togglePanel = () => addPanel.classList.toggle('hidden');
-  if (addBtn) addBtn.onclick = togglePanel;
-  if (addBtnDesktop) addBtnDesktop.onclick = togglePanel;
-  if (cancelTx) cancelTx.onclick = () => addPanel.classList.add('hidden');
+  addBtn && (addBtn.onclick = togglePanel);
+  addBtnDesktop && (addBtnDesktop.onclick = togglePanel);
+  cancelTx && (cancelTx.onclick = () => addPanel.classList.add('hidden'));
 
-  saveTx.onclick = () => {
+  saveTx && (saveTx.onclick = () => {
     const type = txType.value;
     const amount = Number(txAmount.value);
     const date = txDate.value;
@@ -176,7 +189,7 @@ txType.addEventListener('change', updateCategoryOptions);
     db.ref(`users/${user.uid}/transactions`).push(payload)
       .then(() => { clearAddForm(); addPanel.classList.add('hidden'); })
       .catch(err => alert(err.message));
-  };
+  });
 
   function clearAddForm() {
     txAmount.value = '';
@@ -187,104 +200,117 @@ txType.addEventListener('change', updateCategoryOptions);
 
   // ===== Render Transactions =====
   function renderTransactions(list) {
-  const typeFilter = filterType.value;
-  const monthFilter = filterMonth.value;
-  let filtered = list.filter(tx => {
-    if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
-    if (monthFilter && tx.date.slice(0, 7) !== monthFilter) return false;
-    return true;
-  });
+    const typeFilterVal = filterType ? filterType.value : 'all';
+    const monthFilterVal = filterMonth ? filterMonth.value : '';
 
-  const txListEl = document.getElementById('txList'); // container baru
-  txListEl.innerHTML = '';
+    let filtered = list.filter(tx => {
+      if (typeFilterVal !== 'all' && tx.type !== typeFilterVal) return false;
+      if (monthFilterVal && tx.date.slice(0, 7) !== monthFilterVal) return false;
+      return true;
+    });
 
-  if (filtered.length === 0) {
-    txListEl.innerHTML = `
-      <div class="text-center text-slate-500 dark:text-slate-400 py-6">
-        No transactions found for this period.
-      </div>`;
-    return;
+    const txListEl = document.getElementById('txList');
+    if (!txListEl) return;
+    txListEl.innerHTML = '';
+
+    if (filtered.length === 0) {
+      txListEl.innerHTML = `
+        <div class="text-center text-slate-500 dark:text-slate-400 py-6">
+          No transactions found for this period.
+        </div>`;
+      return;
+    }
+
+    filtered.forEach(tx => {
+      const icon =
+        tx.type === 'income' ? '💰' :
+        tx.type === 'expense' ? '💸' : '🏦';
+
+      const colorClass =
+        tx.type === 'income' ? 'text-green-600 dark:text-green-400' :
+        tx.type === 'expense' ? 'text-rose-600 dark:text-rose-400' :
+        'text-emerald-600 dark:text-emerald-400';
+
+      const card = document.createElement('div');
+      card.className =
+        'flex items-center justify-between bg-white dark:bg-slate-800 shadow-sm rounded-lg px-4 py-3 border border-slate-100 dark:border-slate-700 transition-colors';
+
+      card.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-lg ${colorClass}">
+            ${icon}
+          </div>
+          <div>
+            <p class="font-medium text-slate-800 dark:text-slate-100">${escapeHtml(tx.category)}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">${tx.date} • ${escapeHtml(tx.desc || '-') }</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="font-semibold ${colorClass}">${formatCurrency(tx.amount)}</p>
+          <button class="delete-btn text-xs text-slate-400 hover:text-rose-500" data-id="${tx.id}">
+            Delete
+          </button>
+        </div>
+      `;
+      txListEl.appendChild(card);
+    });
+
+    // delete logic
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.id;
+        if (!confirm('Delete this transaction?')) return;
+        const user = firebase.auth().currentUser;
+        db.ref(`users/${user.uid}/transactions/${id}`).remove();
+      };
+    });
   }
-
-  filtered.forEach(tx => {
-    const icon =
-      tx.type === 'income'
-        ? '💰'
-        : tx.type === 'expense'
-        ? '💸'
-        : '🏦';
-
-    const colorClass =
-      tx.type === 'income'
-        ? 'text-green-600 dark:text-green-400'
-        : tx.type === 'expense'
-        ? 'text-rose-600 dark:text-rose-400'
-        : 'text-emerald-600 dark:text-emerald-400';
-
-    const card = document.createElement('div');
-    card.className =
-      'flex items-center justify-between bg-white dark:bg-slate-800 shadow-sm rounded-lg px-4 py-3 border border-slate-100 dark:border-slate-700 transition-colors';
-
-    card.innerHTML = `
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-lg ${colorClass}">
-          ${icon}
-        </div>
-        <div>
-          <p class="font-medium text-slate-800 dark:text-slate-100">${escapeHtml(tx.category)}</p>
-          <p class="text-xs text-slate-500 dark:text-slate-400">${tx.date} • ${escapeHtml(tx.desc || '-') }</p>
-        </div>
-      </div>
-      <div class="text-right">
-        <p class="font-semibold ${colorClass}">${formatCurrency(tx.amount)}</p>
-        <button class="delete-btn text-xs text-slate-400 hover:text-rose-500" data-id="${tx.id}">
-          Delete
-        </button>
-      </div>
-    `;
-    txListEl.appendChild(card);
-  });
-
-  // delete logic
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.onclick = () => {
-      const id = btn.dataset.id;
-      if (!confirm('Delete this transaction?')) return;
-      const user = firebase.auth().currentUser;
-      db.ref(`users/${user.uid}/transactions/${id}`).remove();
-    };
-  });
-}
-
 
   // ===== Summary & Charts =====
   function updateSummaryAndCharts(list) {
-    const income = list.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-    const expense = list.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-    const saving = list.filter(t => t.type === 'saving').reduce((s, t) => s + Number(t.amount), 0);
+    const period = summaryMonth ? summaryMonth.value : '';
+    const activePeriod = period || new Date().toISOString().slice(0, 7);
+
+    // Filter transaksi untuk SUMMARY (monthly)
+    const filtered = list.filter(t => t.date && t.date.slice(0, 7) === activePeriod);
+
+    const income = filtered.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+    const expense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+    const saving = filtered.filter(t => t.type === 'saving').reduce((s, t) => s + Number(t.amount), 0);
     const balance = income - expense - saving;
 
-    totalIncomeEl.textContent = formatCurrency(income);
-    totalExpenseEl.textContent = formatCurrency(expense);
-    balanceEl.textContent = formatCurrency(balance);
-    document.getElementById('totalSaving').textContent = formatCurrency(saving);
+    totalIncomeEl && (totalIncomeEl.textContent = formatCurrency(income));
+    totalExpenseEl && (totalExpenseEl.textContent = formatCurrency(expense));
+    balanceEl && (balanceEl.textContent = formatCurrency(balance));
+    document.getElementById('totalSaving') && (document.getElementById('totalSaving').textContent = formatCurrency(saving));
 
+    // Pie Chart (expense breakdown)
     const catMap = {};
-    list.filter(t => t.type === 'expense').forEach(t => {
+    filtered.filter(t => t.type === 'expense').forEach(t => {
       catMap[t.category] = (catMap[t.category] || 0) + Number(t.amount);
     });
     renderPieChart(Object.keys(catMap), Object.values(catMap));
 
+    // Line Chart (6 months timeline) - uses global list to get months
     const months = lastNMonths(6);
     const monthlyTotals = months.map(m =>
-      list.filter(t => t.type === 'expense' && t.date.slice(0, 7) === m)
-          .reduce((s, t) => s + Number(t.amount), 0)
+      list.filter(t => t.type === 'expense' && t.date && t.date.slice(0, 7) === m)
+        .reduce((s, t) => s + Number(t.amount), 0)
     );
     renderLineChart(months, monthlyTotals);
+
+    // DEFAULT: Transaction history ikut summary period only if user hasn't overridden
+    if (filterMonth) {
+      if (filterMonth.dataset.auto === '1') {
+        filterMonth.value = activePeriod;
+      }
+    }
   }
 
   function renderPieChart(labels, data) {
-    const ctx = document.getElementById('pieChart').getContext('2d');
+    const canvas = document.getElementById('pieChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (pieChart) pieChart.destroy();
     pieChart = new Chart(ctx, {
       type: 'pie',
@@ -294,7 +320,9 @@ txType.addEventListener('change', updateCategoryOptions);
   }
 
   function renderLineChart(labels, data) {
-    const ctx = document.getElementById('lineChart').getContext('2d');
+    const canvas = document.getElementById('lineChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (lineChart) lineChart.destroy();
     lineChart = new Chart(ctx, {
       type: 'line',
@@ -306,21 +334,61 @@ txType.addEventListener('change', updateCategoryOptions);
   function destroyCharts() {
     if (pieChart) { pieChart.destroy(); pieChart = null; }
     if (lineChart) { lineChart.destroy(); lineChart = null; }
+    if (yCategoryChart) { yCategoryChart.destroy(); yCategoryChart = null; }
+    if (yTrendChart) { yTrendChart.destroy(); yTrendChart = null; }
   }
 
-  // ===== Filters =====
-  filterType.onchange = filterMonth.onchange = () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    db.ref(`users/${user.uid}/transactions`).once('value').then(s => {
-      const data = s.val() || {};
-      const txList = Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a,b)=>b.timestamp-a.timestamp);
-      renderTransactions(txList);
+  // ===== Filters handling (user override behavior) =====
+  // mark filterMonth as auto by default (so it follows summary)
+  if (filterMonth) filterMonth.dataset.auto = '1';
+
+  // when user changes filterMonth manually, disable auto sync
+  if (filterMonth) {
+    filterMonth.addEventListener('change', () => {
+      filterMonth.dataset.auto = '0';
+      // re-render transactions using current stored db snapshot via one-time read
+      const user = auth.currentUser;
+      if (!user) return;
+      db.ref(`users/${user.uid}/transactions`).once('value').then(s => {
+        const data = s.val() || {};
+        const txList = Object.keys(data).map(k => ({ id: k, ...data[k] }))
+          .sort((a,b)=>b.timestamp-a.timestamp);
+        renderTransactions(txList);
+      });
     });
-  };
+  }
+
+  // when user changes filterType, just re-render transactions
+  if (filterType) {
+    filterType.addEventListener('change', () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      db.ref(`users/${user.uid}/transactions`).once('value').then(s => {
+        const data = s.val() || {};
+        const txList = Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a,b)=>b.timestamp-a.timestamp);
+        renderTransactions(txList);
+      });
+    });
+  }
+
+  // summaryMonth change → update summary and possibly history
+  if (summaryMonth) {
+    summaryMonth.addEventListener('change', () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      db.ref(`users/${user.uid}/transactions`).once('value').then(s => {
+        const data = s.val() || {};
+        const txList = Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a,b)=>b.timestamp-a.timestamp);
+        updateSummaryAndCharts(txList);
+        if (filterMonth && filterMonth.dataset.auto === '1') {
+          renderTransactions(txList);
+        }
+      });
+    });
+  }
 
   // ===== Export CSV =====
-  exportCsvBtn.onclick = () => {
+  exportCsvBtn && (exportCsvBtn.onclick = () => {
     const user = auth.currentUser;
     if (!user) return alert('Not signed in.');
     db.ref(`users/${user.uid}/transactions`).once('value').then(s => {
@@ -330,7 +398,137 @@ txType.addEventListener('change', updateCategoryOptions);
       const csv = toCSV(rows);
       downloadFile(csv, `finance-export-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
     });
-  };
+  });
+
+  // ===== Yearly Summary logic & UI =====
+  // create back button inside yearly section if not exists (simple style)
+  function ensureBackButton() {
+    if (!yearlySection) return;
+    if (document.getElementById('backToDashboard')) return;
+    const btn = document.createElement('button');
+    btn.id = 'backToDashboard';
+    btn.className = 'px-3 py-1 mb-4 border rounded bg-indigo-600 text-white text-sm';
+    btn.textContent = '← Back to Dashboard';
+    yearlySection.insertBefore(btn, yearlySection.firstChild);
+    btn.addEventListener('click', () => {
+      // show dashboard, hide yearly
+      dashboard && dashboard.classList.remove('hidden');
+      yearlySection.classList.add('hidden');
+      // reload dashboard summary & transactions
+      const user = auth.currentUser;
+      if (!user) return;
+      db.ref(`users/${user.uid}/transactions`).once('value').then(s => {
+        const data = s.val() || {};
+        const txList = Object.keys(data).map(k => ({ id: k, ...data[k] })).sort((a,b)=>b.timestamp-a.timestamp);
+        renderTransactions(txList);
+        updateSummaryAndCharts(txList);
+      });
+    });
+  }
+
+  // show yearly section when menuyearly clicked
+  if (menuYearlyBtn) {
+    menuyearly && menuyearly.addEventListener('click', () => {
+      dashboard && dashboard.classList.add('hidden');
+      if (yearlySection) yearlySection.classList.remove('hidden');
+      ensureBackButton();
+      loadYearOptions();   // ensure options exist
+      updateYearlySummary();
+    });
+  }
+
+  // generate year selector options (last 6 years)
+  function loadYearOptions() {
+    const yearSelector = document.getElementById("yearSelector");
+    if (!yearSelector) return;
+    const currentYear = new Date().getFullYear();
+    yearSelector.innerHTML = "";
+    for (let y = currentYear; y >= currentYear - 5; y--) {
+      const opt = document.createElement("option");
+      opt.value = y;
+      opt.textContent = y;
+      yearSelector.appendChild(opt);
+    }
+    yearSelector.value = currentYear;
+    yearSelector.onchange = () => updateYearlySummary();
+  }
+
+  // yearly summary update (reads full transactions and aggregates by selected year)
+  function updateYearlySummary() {
+    const yearSelector = document.getElementById("yearSelector");
+    if (!yearSelector) return;
+    const year = yearSelector.value;
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    db.ref(`users/${user.uid}/transactions`).once("value", (snap) => {
+      const data = snap.val() || {};
+      let totalIncome = 0;
+      let totalExpense = 0;
+      let totalSaving = 0;
+      const monthlyIncome = Array(12).fill(0);
+      const monthlyExpense = Array(12).fill(0);
+      const categories = {};
+      Object.values(data).forEach(tx => {
+        if (!tx.date) return;
+        const d = new Date(tx.date);
+        if (isNaN(d)) return; // skip invalid dates
+        if (d.getFullYear().toString() !== year) return;
+        const month = d.getMonth();
+        if (tx.type === "income") {
+          totalIncome += Number(tx.amount);
+          monthlyIncome[month] += Number(tx.amount);
+        } else if (tx.type === "expense") {
+          totalExpense += Number(tx.amount);
+          monthlyExpense[month] += Number(tx.amount);
+          categories[tx.category] = (categories[tx.category] || 0) + Number(tx.amount);
+        } else if (tx.type === "saving") {
+          totalSaving += Number(tx.amount);
+        }
+      });
+      document.getElementById("yIncome") && (document.getElementById("yIncome").textContent = formatCurrency(totalIncome));
+      document.getElementById("yExpense") && (document.getElementById("yExpense").textContent = formatCurrency(totalExpense));
+      document.getElementById("ySaving") && (document.getElementById("ySaving").textContent = formatCurrency(totalSaving));
+      document.getElementById("yBalance") && (document.getElementById("yBalance").textContent = formatCurrency(totalIncome - totalExpense - totalSaving));
+      drawYCategoryChart(categories);
+      drawYTrendChart(monthlyIncome, monthlyExpense);
+    });
+  }
+
+  function drawYCategoryChart(catData) {
+    const canvas = document.getElementById("yCategoryChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (yCategoryChart) yCategoryChart.destroy();
+    yCategoryChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: Object.keys(catData),
+        datasets: [{
+          label: "Expense",
+          data: Object.values(catData)
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+
+  function drawYTrendChart(income, expense) {
+    const canvas = document.getElementById("yTrendChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (yTrendChart) yTrendChart.destroy();
+    yTrendChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+        datasets: [
+          { label: "Income", data: income, borderWidth: 2, fill: false },
+          { label: "Expense", data: expense, borderWidth: 2, fill: false }
+        ]
+      },
+      options: { responsive: true }
+    });
+  }
 
   // ===== Utils =====
   function formatCurrency(num) {
@@ -378,6 +576,12 @@ txType.addEventListener('change', updateCategoryOptions);
 
   // default month
   (function initDefaults(){
-    filterMonth.value = new Date().toISOString().slice(0,7);
+    const now = new Date().toISOString().slice(0, 7);
+    if (summaryMonth) summaryMonth.value = now;
+    if (filterMonth) {
+      filterMonth.value = now;
+      filterMonth.dataset.auto = '1'; // default: auto-follow summary
+    }
   })();
-}
+
+} // end firebase block
